@@ -1,67 +1,42 @@
-const cssStyle = '\
-<style>\
-body {\
-  font-family: Arial, sans-serif;\
-  text-align: center;\
-  padding: 50px;\
-}\
-a.button {\
-  background-color: #4CAF50;\
-  color: white;\
-  padding: 15px 32px;\
-  text-align: center;\
-  display: inline-block;\
-  font-size: 16px;\
-  margin: 4px 2px;\
-  cursor: pointer;\
-  text-decoration: none;\
-  border-radius: 4px;\
-}\
-</style>\
-';
-
 function doGet(e) {
   var html = HtmlService.createHtmlOutput();
-  html.append(cssStyle);
+  html.append(htmlTemplate);
   var userProperties = PropertiesService.getUserProperties().getProperties();
-  html.append('<h1>現在のユーザー</h1>');
+  html.append(`
+  <div></div>
+  `);
   html.append(Session.getEffectiveUser().getEmail());
-  if (Object.keys(userProperties).length > 0) {
-    html.append('<h1>User Properties</h1>');
-    html.append('<ul>');
 
-    for (var key in userProperties) {
-      html.append('<li>' + key + '<button onclick="deleteProperty(\'' + key + '\')">Delete</button></li>');
-    }
-
-    html.append('</ul>');
-
-    // JavaScript function to delete property via AJAX
-    html.append('<script>function deleteProperty(key) { google.script.run.deleteUserProperty(key); }</script>');
-  } else {
-    html.append('<p>No user properties found.</p>');
+  var trigers = getSchduledTriggers();
+  if (trigers.length == 0) {
+    html.append('<p>現在定期実行のトリガーが設定されていません。</p>');
   }
-
+  else {
+    html.append('<p>現在定期実行間隔が設定されています。</p>');
+  }
   var service = getOAuthService();
   if (service.hasAccess()) {
-    var accessToken = service.getAccessToken();
-    try {
-      doSync(accessToken);
-    } catch (e) {
-      if (e.message.indexOf('expired_access_token') !== -1) {
-        html.append(getAuthorizetionRequireResponse(service));
-        return html;
-      }
-      else {
-        console.log(e);
-        html.append('<h1>同期に失敗しました</h1>');
-        html.append('予期しないエラーが発生しました<br/>error message: ' + e.message + '</p>');
+    html.append(`
+    <div class="container">
+      <div class="button-container">
+        <button class="custom-button" onclick="onSetPeriodButton()">定期実行</button>
+        <button class="custom-button" onclick="onSyncButton()">同期する</button>
+        <button class="custom-button" onclick="onCuttOffFreeeButton()">Freeとの接続を切る</button>
+      </div>
+    </div>
 
-        return html;
+    <script>
+      function onSetPeriodButton() {
+        google.script.run.setPeriodButtonHandle(1);
       }
-    }
-    html.append('<h1>同期が完了しました</h1>');
-    html.append('<p>freeeの勤怠情報をgoogleカレンダーに同期しました。このタブは閉じても構いません。</p>');
+      function onSyncButton() {
+        google.script.run.syncButtonHandle();
+      }
+      function onCuttOffFreeeButton() {
+        google.script.run.deleteFreeeAuthentication();
+      }
+    </script>
+    `);
 
     return html;
   } else {
@@ -70,23 +45,73 @@ function doGet(e) {
   }
 }
 
-function deleteUserProperty(key) {
+function syncButtonHandle() {
+  var accessToken = getOAuthService().getAccessToken();
+  try {
+    doSync(accessToken);
+  } catch (e) {
+    if (e.message.indexOf('expired_access_token') !== -1) {
+      // TODO: ボタン押された実行で失敗した場合の処理
+      // html.append(getAuthorizetionRequireResponse(service));
+      // return html;
+    }
+    else {
+      console.log(e);
+      // html.append('<h1>同期に失敗しました</h1>');
+      // html.append('予期しないエラーが発生しました<br/>error message: ' + e.message + '</p>');
+
+      // TODO: ボタン押された実行で失敗した場合の処理
+      // return html;
+    }
+  }
+}
+
+function getSchduledTriggers() {
+  var triggers = ScriptApp.getProjectTriggers();
+  var scheduledTriggers = [];
+
+  for (var i = 0; i < triggers.length; i++) {
+    var trigger = triggers[i];
+    if (trigger.getEventType() === ScriptApp.EventType.CLOCK) {
+      scheduledTriggers.push(trigger);
+    }
+  }
+  return scheduledTriggers;
+}
+
+function setPeriodButtonHandle(periodMinutes) {
+  ScriptApp.newTrigger("periodicProcessing")
+      .timeBased()
+      .everyMinutes(periodMinutes)
+      .create();
+}
+
+function periodicProcessing() {
+  var service = getOAuthService();
+  if (service.hasAccess()) {
+    var accessToken = service.getAccessToken();
+    try {
+      doSync(accessToken);
+    } catch (e) {
+      // TODO: 定期実行で失敗した場合の処理
+    }
+  }
+  else {
+      // TODO: 定期実行で失敗した場合の処理
+  }
+}
+
+function deleteFreeeAuthentication() {
   var userProperties = PropertiesService.getUserProperties();
-  userProperties.deleteProperty(key);
+  userProperties.deleteProperty('oauth2.freee');
 }
 
 function getAuthorizetionRequireResponse(service) {
     const authorizationUrl = service.getAuthorizationUrl();
-    var htmlOutput = '<h1>認証が必要です</h1>' +
+    var htmlStr = '<h1>認証が必要です</h1>' +
       '<p>freeeとの連携の認証が必要です。「認証する」ボタンをクリックして認証を行ってください。新しいタブが開いてfreeeのログイン画面が表示されます。</p>' +
       '<a class="button" href="' + authorizationUrl + '", target="_blank">認証する</a>';
-    return htmlOutput;
-}
-
-function debug() {
-  var service = getOAuthService();
-  var accessToken = service.getAccessToken();
-  doSync(accessToken);
+    return htmlStr;
 }
 
 function doSync(accessToken) {
@@ -170,62 +195,5 @@ function getDateMinutes(date) {
   var dateString = year + '-' + monthStr + '-' + dayStr + 'T' + hoursStr + ':' + minutesStr;
   return dateString;
 }
-
-
-////// googleカレンダー操作用メソッド
-
-function addCalendarEvent(startTime, endTime, title, description) {
-  // カレンダーのインスタンスを取得（デフォルトカレンダーを使用）
-  var calendar = CalendarApp.getDefaultCalendar();
-  
-  // イベントを作成
-  var event = calendar.createEvent(title, startTime, endTime, {
-    description: description
-  });
-}
-
-function getSuffixedEventsForDate(date, serchTitle) {
-  // カレンダーのインスタンスを取得（デフォルトカレンダーを使用）
-  var calendar = CalendarApp.getDefaultCalendar();
-  
-  // 指定された日付の開始時刻と終了時刻を取得
-  var startTime = new Date(date);
-  startTime.setHours(0, 0, 0, 0);
-  
-  var endTime = new Date(date);
-  endTime.setHours(23, 59, 59, 999);
-  
-  // 指定された日付のイベントを取得
-  var events = calendar.getEvents(startTime, endTime);
-  
-  // フィルタリングされたイベントを格納する配列
-  var filteredEvents = [];
-
-  // イベントをフィルタリングして配列に格納
-  for (var i = 0; i < events.length; i++) {
-    var event = events[i];
-    if (event.getTitle() === serchTitle) {
-      filteredEvents.push({
-        id: event.getId(),
-        startTime: event.getStartTime(),
-        endTime: event.getEndTime()
-      });
-    }
-  }
-
-  return filteredEvents;
-}
-
-function checkAndUpdateEvent(currentEvent, targetEvent) {
-  if (currentEvent.startTime.getTime() !== targetEvent.startTime.getTime() ||
-      currentEvent.endTime.getTime() !== targetEvent.endTime.getTime()) {
-    CalendarApp.getDefaultCalendar().getEventById(currentEvent.id).setTime(targetEvent.startTime, targetEvent.endTime);
-  }
-}
-
-function deleteEvent(eventId) {
-  CalendarApp.getDefaultCalendar().getEventById(eventId).deleteEvent();
-}
-
 
 

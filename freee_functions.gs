@@ -131,26 +131,16 @@ function getOAuthService() {
 function authCallback(request) {
   var service = getOAuthService();
   var isAuthorized = service.handleCallback(request);
+  var html = HtmlService.createHtmlOutput();
+  html.append(htmlTemplate);
   if (isAuthorized) {
-    var htmlOutput = HtmlService.createHtmlOutput(
-      '<html><head>' +
-      cssStyle +
-      '</head><body>' +
-      '<h1>認証が完了しました</h1>' +
-      '<p>freeeとの連携が完了しました。「同期する」ボタンを押してfreeeの勤怠情報をgoogleカレンダーに同期します。</p>' +
-      '<a class="button" href="' + ScriptApp.getService().getUrl() + '", target="_blank">同期する</a>' +
-      '</body></html>'
-    );
-    return htmlOutput;
+      html.append('<h1>認証が完了しました</h1>');
+      html.append('<p>freeeとの連携が完了しました。「同期する」ボタンを押してfreeeの勤怠情報をgoogleカレンダーに同期します。</p>');
+      html.append('<a class="button" href="' + ScriptApp.getService().getUrl() + '", target="_blank">同期する</a>');
+    return html;
   } else {
-    var htmlOutput = HtmlService.createHtmlOutput(
-      '<html><head>' +
-      cssStyle +
-      '</head><body>' +
-      '<h1>認証に失敗しました</h1>' +
-      '<p>freeeとの連携に失敗しました。管理者に問い合わせてください。</p>' +
-      '</body></html>'
-    );
-    return htmlOutput;
+    html.append('<h1>認証に失敗しました</h1>');
+    html.append('<p>freeeとの連携に失敗しました。管理者に問い合わせてください。</p>');
+    return html;
   }
 }
