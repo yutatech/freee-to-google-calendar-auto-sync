@@ -1,1 +1,1 @@
-# freee-to-google-collector
+# freee-to-google-calendar-auto-sync
