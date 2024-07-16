@@ -43,7 +43,7 @@ function getUserNameAndId(accessToken) {
   const parsedResponse = JSON.parse(response.getContentText());
   const companies = parsedResponse.companies;
   const foundCompany = companies.find(function(company) {
-    return company.id == companyId;
+    return company.id == PropertiesService.getScriptProperties().getProperty("freeeCompanyId");
   });
   return {id: foundCompany.employee_id, name: foundCompany.display_name.split(' ')[0]};
 }
@@ -51,7 +51,7 @@ function getUserNameAndId(accessToken) {
 function getStampsForDateRange(from_date, to_date, userId, accessToken) {
   var timeZone = Session.getScriptTimeZone(); // スクリプトのタイムゾーンを取得
   var urlParams = {
-    company_id: companyId,
+    company_id: PropertiesService.getScriptProperties().getProperty("freeeCompanyId"),
     from_date: Utilities.formatDate(from_date, timeZone, 'yyyy-MM-dd',),
     to_date: Utilities.formatDate(to_date, timeZone, 'yyyy-MM-dd'),
     limit: 100,
@@ -121,8 +121,8 @@ function getOAuthService() {
   return OAuth2.createService('freee')
   .setAuthorizationBaseUrl('https://accounts.secure.freee.co.jp/public_api/authorize')
   .setTokenUrl('https://accounts.secure.freee.co.jp/public_api/token')
-  .setClientId(Client_ID)
-  .setClientSecret(Client_Secret)
+  .setClientId(PropertiesService.getScriptProperties().getProperty("freeeClientId"))
+  .setClientSecret(PropertiesService.getScriptProperties().getProperty("freeeClientSecret"))
   .setCallbackFunction('authCallback')
   .setPropertyStore(PropertiesService.getUserProperties())
 }
@@ -136,7 +136,7 @@ function authCallback(request) {
   if (isAuthorized) {
       html.append('<h1>認証が完了しました</h1>');
       html.append('<p>freeeとの連携が完了しました。「同期する」ボタンを押してfreeeの勤怠情報をgoogleカレンダーに同期します。</p>');
-      html.append('<a class="button" href="' + ScriptApp.getService().getUrl() + '", target="_blank">同期する</a>');
+      html.append('<a class="btn btn-primary" href="https://script.google.com/macros/s/hogehoge/exec", target="_blank">同期する</a>');
     return html;
   } else {
     html.append('<h1>認証に失敗しました</h1>');
