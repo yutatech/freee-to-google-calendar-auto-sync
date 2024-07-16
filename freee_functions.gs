@@ -160,15 +160,14 @@ function authCallback(request) {
   var html = HtmlService.createHtmlOutput();
   html.append(htmlTemplate); 
   html.append('<script>');
-  html.append('document.getElementById("currenUser").innerText = "' + Session.getEffectiveUser().getEmail() + '";');
-  html.append('<\script>');
+  html.append('document.getElementById("currentUser").innerText = "' + Session.getEffectiveUser().getEmail() + '";');
+  html.append('</script>');
   if (isAuthorized) {
-      html.append('<h1>認証が完了しました</h1>');
-      html.append('<p>freeeとの連携が完了しました。「同期する」ボタンを押してfreeeの勤怠情報をgoogleカレンダーに同期します。</p>');
-      html.append('<a class="btn btn-primary" href="https://script.google.com/macros/s/hogehoge/exec", target="_blank">同期する</a>');
+      html.append('<h1 class="mt-4">認証が完了しました</h1>');
+      html.append('<p>freeeとの連携が完了しました。元のタブに戻ってページをリロードしてください。このタブは閉じてかまいません。</p>');
     return html;
   } else {
-    html.append('<h1>認証に失敗しました</h1>');
+    html.append('<h1 class="mt-4">認証に失敗しました</h1>');
     html.append('<p>freeeとの連携に失敗しました。管理者に問い合わせてください。</p>');
 
     return html;

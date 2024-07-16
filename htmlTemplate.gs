@@ -179,7 +179,7 @@ h6, .h6, h5, .h5, h4, .h4, h3, .h3, h2, .h2, h1, .h1 {
     <div class="hstack">
       <p class="ms-auto"></p>
       <p class="navbar-text " style="padding-right: 1rem">現在のユーザー: </p>
-      <p class="navbar-text" style="padding-right: 1rem" id="currenUser">who@gmail.com</p>
+      <p class="navbar-text" style="padding-right: 1rem" id="currentUser">who@gmail.com</p>
     </div>
   </div>
 </nav>

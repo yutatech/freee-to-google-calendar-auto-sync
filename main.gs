@@ -255,7 +255,9 @@ function doGet(e) {
     }
   }
   function onCuttOffFreeeButton() {
-    google.script.run.deleteFreeeAuthentication();
+    google.script.run.withSuccessHandler(function(response) {
+      location.reload(true);
+      }).deleteFreeeAuthentication();
   }
 
   function onPeriodicSyncEnable() {
@@ -320,7 +322,7 @@ function doGet(e) {
     document.getElementById('syncStartTimerEnable').addEventListener('change', onSyncStartTimerEnable);
     `);
 
-    html.append('document.getElementById("currenUser").innerText = "' + Session.getEffectiveUser().getEmail() + '";');
+    html.append('document.getElementById("currentUser").innerText = "' + Session.getEffectiveUser().getEmail() + '";');
     html.append('document.getElementById("prjId").placeholder = "現在の設定値: ' + userProperties.getProperty("prjId") + '";');
     html.append('document.getElementById("durationSelect").value = "' + userProperties.getProperty("duration") + '";');
     html.append('document.getElementById("periodicSyncEnable").checked = ' + userProperties.getProperty("periodicSyncEnabled") + ';');
@@ -346,8 +348,11 @@ function doGet(e) {
   } else {
     html.append(getAuthorizetionRequireResponse(service));
     html.append('<script>');
-    html.append('document.getElementById("currenUser").innerText = "' + Session.getEffectiveUser().getEmail() + '";');
-    html.append('<\script>');
+    html.append('window.onload = function (){');
+    html.append('console.log("onload");');
+    html.append('document.getElementById("currentUser").innerText = "' + Session.getEffectiveUser().getEmail() + '";');
+    html.append('};');
+    html.append('</script>');
     return html;
   }
 }
@@ -479,9 +484,9 @@ function deleteFreeeAuthentication() {
 
 function getAuthorizetionRequireResponse(service) {
     const authorizationUrl = service.getAuthorizationUrl();
-    var htmlStr = '<h1>認証が必要です</h1>' +
+    var htmlStr = '<h1 class="mt-4">認証が必要です</h1>' +
       '<p>freeeとの連携の認証が必要です。「認証する」ボタンをクリックして認証を行ってください。新しいタブが開いてfreeeのログイン画面が表示されます。</p>' +
-      '<a class="btn btn-primary" href="' + authorizationUrl + '", target="_blank">認証する</a>';
+      '<a class="btn btn-primary" href="' + authorizationUrl + '" target="_blank">認証する</a>';
     return htmlStr;
 }
 
@@ -542,7 +547,9 @@ function doSync(accessToken, fromDate, toDate) {
       console.log('update from:', targetEvents[i].startTime, ' to: ', targetEvents[i].endTime);
     }
     for (; i < targetEvents.length; i++) {
-      addCalendarEvent(targetEvents[i].startTime, targetEvents[i].endTime, userName + '　' + eventTitleSuffixString, '\n' + PropertiesService.getUserProperties().getProperty("prjId"));
+      addCalendarEvent(targetEvents[i].startTime, targetEvents[i].endTime, userName + '　' + eventTitleSuffixString, 
+        '<a href="' + PropertiesService.getScriptProperties().getProperty("deployUrl") + '"> Freee to Google Calendar Auto Sync</a>\n' +
+        PropertiesService.getUserProperties().getProperty("prjId"));
       console.log('add from:', targetEvents[i].startTime, ' to: ', targetEvents[i].endTime);
     }
     for (; i < currentEvents.length; i++) {
