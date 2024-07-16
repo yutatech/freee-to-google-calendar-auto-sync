@@ -1,7 +1,7 @@
 function doGet(e) {
   const userProperties = PropertiesService.getUserProperties();
   if (!userProperties.getProperty("prjId")) {
-    userProperties.setProperty("prjId", 'Prj_ID')
+    userProperties.setProperty("prjId", '@@Prj_ID@@')
   }
   if (!userProperties.getProperty("duration")) {
     userProperties.setProperty("duration", '5min')
