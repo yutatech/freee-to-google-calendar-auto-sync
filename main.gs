@@ -19,6 +19,10 @@ function doGet(e) {
     userProperties.setProperty("syncStopTime", '18-00')
   }
 
+  if (!isPeriodicTriggerExist('periodicProcessing')) {
+    userProperties.setProperty("periodicSyncEnabled", false)
+  }
+
   var html = HtmlService.createHtmlOutput();
   html.append(htmlTemplate);
 
@@ -90,7 +94,7 @@ function doGet(e) {
         <div class="container mb-0">
           <div class="form-check form-switch d-flex align-items-center">
             <input class="form-check-input me-2" type="checkbox" role="switch" id="syncStartTimerEnable">
-            <label class="form-check-label" for="periodicSyncEnable" id="syncStartTimerEnableLabel"></label>自動更新を行う時間を設定する</label>
+            <label class="form-check-label" for="periodicSyncEnable" id="syncStartTimerEnableLabel"></label>自動同期を行う時間を設定する</label>
           </div>
           <form class="row align-items-start d-flex align-items-center" onSubmit="onSyncStartTimerUpdate()">
             <div class="form-group offset-2 col-10 hstack mb-2">
@@ -168,8 +172,10 @@ function doGet(e) {
         <h1 class="modal-title fs-5">同期に失敗しました</h1>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
-      <!-- <div class="modal-body">
-      </div> -->
+      <div class="modal-body">
+        <p id="syncFailModalMessage"></p>
+        <p id="syncFailModalErrorMessage"></p>
+      </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-danger" data-bs-dismiss="modal">閉じる</button>
       </div>
@@ -190,28 +196,37 @@ function doGet(e) {
 
   function onSyncButton() {
     console.log('sync');
-    const success = google.script.run.syncButtonHandle();
-    $('#syncing').modal('hide');
-    if (success) {
-      $('#syncSuccess').modal('show');
-      setTimeout(function() {
-        $('#syncSuccess').modal('hide');
-      }, 3000);
-    } else {
-      $('#syncFail').modal('show');
-    }
+    google.script.run.withSuccessHandler(function(response) {
+      console.log(response);
+      $('#syncing').modal('hide');
+      if (response.success) {
+        $('#syncSuccess').modal('show');
+        setTimeout(function() {
+          $('#syncSuccess').modal('hide');
+        }, 3000);
+      } else {
+        document.getElementById("syncFailModalMessage").innerText = response.message
+        document.getElementById("syncFailModalErrorMessage").innerText = 'error message: ' + response.error_message
+        $('#syncFail').modal('show');
+      }
+    }).syncButtonHandle();
   }
   function onSyncMonthButton() {
     console.log('sync month');
-    const success = google.script.run.syncMonthButtonHandle();
-    if (success) {
-      $('#syncSuccess').modal('show');
-      setTimeout(function() {
-        $('#syncSuccess').modal('hide');
-      }, 3000);
-    } else {
-      $('#syncFail').modal('show');
-    }
+    google.script.run.withSuccessHandler(function(response) {
+      console.log(response);
+      $('#syncing').modal('hide');
+      if (response.success) {
+        $('#syncSuccess').modal('show');
+        setTimeout(function() {
+          $('#syncSuccess').modal('hide');
+        }, 3000);
+      } else {
+        document.getElementById("syncFailModalMessage").innerText = response.message
+        document.getElementById("syncFailModalErrorMessage").innerText = 'error message: ' + response.error_message
+        $('#syncFail').modal('show');
+      }
+    }).syncMonthButtonHandle();
   }
   function onSyncSelectDateButton() {
     var syncDate = document.getElementById('syncDateInput').value;
@@ -220,18 +235,23 @@ function doGet(e) {
       $('#selectDate').modal('hide');
       $('#syncing').modal('show');
 
-      const success = google.script.run.syncSelectDateButtonHandle(syncDate);
-      if (success) {
-        $('#syncSuccess').modal('show');
-        setTimeout(function() {
-          $('#syncSuccess').modal('hide');
-        }, 3000);
-      } else {
-        $('#syncFail').modal('show');
-      }
+      google.script.run.withSuccessHandler(function(response) {
+        console.log(response);
+        $('#syncing').modal('hide');
+        if (response.success) {
+          $('#syncSuccess').modal('show');
+          setTimeout(function() {
+            $('#syncSuccess').modal('hide');
+          }, 3000);
+        } else {
+          document.getElementById("syncFailModalMessage").innerText = response.message
+          document.getElementById("syncFailModalErrorMessage").innerText = 'error message: ' + response.error_message
+          $('#syncFail').modal('show');
+        }
+      }).syncSelectDateButtonHandle(syncDate);
+
     } else{
       document.getElementById('syncDateFrom').requestSubmit()
-      console.log('not ok');
     }
   }
   function onCuttOffFreeeButton() {
@@ -325,6 +345,9 @@ function doGet(e) {
     return html;
   } else {
     html.append(getAuthorizetionRequireResponse(service));
+    html.append('<script>');
+    html.append('document.getElementById("currenUser").innerText = "' + Session.getEffectiveUser().getEmail() + '";');
+    html.append('<\script>');
     return html;
   }
 }
@@ -380,6 +403,18 @@ function setDuration() {
   trigger.create();
 }
 
+function isPeriodicTriggerExist(functionName) {
+  var triggers = ScriptApp.getProjectTriggers();
+
+  // 各トリガーをチェック
+  for (var i = 0; i < triggers.length; i++) {
+    if (triggers[i].getHandlerFunction() === functionName) {
+      Logger.log("Function " + functionName + " is set as a trigger.");
+      return true;
+    }
+  }
+}
+
 function syncButtonHandle() {
   const targetDate = new Date();
   return doSyncHavingTokenChecked(targetDate, targetDate);
@@ -398,7 +433,10 @@ function syncSelectDateButtonHandle(syncDate) {
 
 function periodicSyncEnableHandle(isEnabled) {
   PropertiesService.getUserProperties().setProperty('periodicSyncEnabled', isEnabled);
-  setDuration();
+  if (isEnabled) {
+  } else {
+    deleteSchduledTriggers();
+  }
 }
 
 function syncStartTimerEnableHandle(isEnabled) {
@@ -461,7 +499,7 @@ function doSyncHavingTokenChecked(fromDate, toDate) {
     else {
       console.log(e);
       // TODO: ボタン押された実行で失敗した場合の処理
-      return {success: false, message: '予期せぬエラーが発生しました。管理者に問い合わせてください。', error_message: e.message};
+      return {success: false, message: '予期しないエラーが発生しました。管理者に問い合わせてください。', error_message: e.message};
     }
   }
 }
@@ -504,7 +542,7 @@ function doSync(accessToken, fromDate, toDate) {
       console.log('update from:', targetEvents[i].startTime, ' to: ', targetEvents[i].endTime);
     }
     for (; i < targetEvents.length; i++) {
-      addCalendarEvent(targetEvents[i].startTime, targetEvents[i].endTime, userName + '　' + eventTitleSuffixString, '\n' + pjtId);
+      addCalendarEvent(targetEvents[i].startTime, targetEvents[i].endTime, userName + '　' + eventTitleSuffixString, '\n' + PropertiesService.getUserProperties().getProperty("prjId"));
       console.log('add from:', targetEvents[i].startTime, ' to: ', targetEvents[i].endTime);
     }
     for (; i < currentEvents.length; i++) {
